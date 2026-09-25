@@ -100,6 +100,19 @@ namespace TravelTour.API.Controllers
             return NoContent();
         }
 
+        // GET: api/Customer/count
+        [HttpGet("count")]
+        [Authorize(Roles = "Admin,Staff")]
+        public async Task<IActionResult> GetCustomerCount()
+        {
+            var totalCustomers = await _context.Customers.CountAsync();
+
+            return Ok(new
+            {
+                message = "Thống kê số lượng khách hàng thành công",
+                totalCustomers = totalCustomers
+            });
+        }
         private bool CustomerExists(int id)
         {
             return _context.Customers.Any(e => e.CustomerId == id);

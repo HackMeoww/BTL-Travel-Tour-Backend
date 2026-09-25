@@ -105,6 +105,102 @@ namespace TravelTour.API.Controllers
             return NoContent();
         }
 
+        // POST: api/Booking/1/cancel
+        [HttpPost("{id}/cancel")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        public async Task<IActionResult> CancelBooking(int id)
+        {
+            var booking = await _context.Bookings.FindAsync(id);
+
+            if (booking == null)
+            {
+                return NotFound(new { message = "Không tìm thấy booking" });
+            }
+
+            if (booking.Status == "Cancelled")
+            {
+                return BadRequest(new { message = "Booking đã được hủy trước đó" });
+            }
+
+            if (booking.Status == "Refunded")
+            {
+                return BadRequest(new { message = "Booking đã được hoàn tiền" });
+            }
+
+            booking.Status = "Cancelled";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Hủy booking thành công",
+                bookingId = booking.BookingId,
+                status = booking.Status
+            });
+        }
+
+        // POST: api/Booking/1/refund
+        [HttpPost("{id}/refund")]
+        [Authorize(Roles = "Admin,Staff")]
+        public async Task<IActionResult> RefundBooking(int id)
+        {
+            var booking = await _context.Bookings.FindAsync(id);
+
+            if (booking == null)
+            {
+                return NotFound(new { message = "Không tìm thấy booking" });
+            }
+
+            if (booking.Status != "Cancelled")
+            {
+                return BadRequest(new
+                {
+                    message = "Chỉ có booking đã hủy mới được hoàn tiền"
+                });
+            }
+
+            var payment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.BookingId == booking.BookingId);
+
+            if (payment == null)
+            {
+                return NotFound(new
+                {
+                    message = "Không tìm thấy thanh toán của booking"
+                });
+            }
+
+            if (payment.Status == "Refunded")
+            {
+                return BadRequest(new
+                {
+                    message = "Thanh toán đã được hoàn tiền trước đó"
+                });
+            }
+
+            if (payment.Status != "Paid")
+            {
+                return BadRequest(new
+                {
+                    message = "Thanh toán chưa ở trạng thái Paid"
+                });
+            }
+
+            payment.Status = "Refunded";
+            booking.Status = "Refunded";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Hoàn tiền thành công",
+                bookingId = booking.BookingId,
+                refundAmount = payment.Amount,
+                paymentStatus = payment.Status,
+                bookingStatus = booking.Status
+            });
+        }
+
         // DELETE: api/Booking/1
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin,Staff")]

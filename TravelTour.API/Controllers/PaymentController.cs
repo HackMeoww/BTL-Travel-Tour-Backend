@@ -111,6 +111,21 @@ namespace TravelTour.API.Controllers
             return NoContent();
         }
 
+        // GET: api/Payment/revenue
+        [HttpGet("revenue")]
+        [Authorize(Roles = "Admin,Staff")]
+        public async Task<IActionResult> GetRevenue()
+        {
+            var totalRevenue = await _context.Payments
+                .Where(p => p.Status == "Paid")
+                .SumAsync(p => p.Amount);
+
+            return Ok(new
+            {
+                message = "Thống kê doanh thu thành công",
+                totalRevenue = totalRevenue
+            });
+        }
         private bool PaymentExists(int id)
         {
             return _context.Payments.Any(e => e.PaymentId == id);
