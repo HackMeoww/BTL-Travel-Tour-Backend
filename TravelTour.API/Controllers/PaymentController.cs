@@ -43,18 +43,42 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<ActionResult<Payment>> CreatePayment(Payment payment)
         {
-            var booking = await _context.Bookings.FindAsync(payment.BookingId);
+            // Tìm Booking
+            var booking = await _context.Bookings
+                .FindAsync(payment.BookingId);
 
             if (booking == null)
             {
-                return NotFound(new { message = "Không tìm thấy booking" });
+                return NotFound(new
+                {
+                    message = "Không tìm thấy booking"
+                });
             }
 
+            // Kiểm tra Booking đã thanh toán chưa
+            var existingPayment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.BookingId == payment.BookingId);
+
+            if (existingPayment != null &&
+                existingPayment.Status == "Paid")
+            {
+                return BadRequest(new
+                {
+                    message = "Booking này đã được thanh toán"
+                });
+            }
+
+            // Backend tự thiết lập thông tin thanh toán
             payment.PaymentDate = DateTime.Now;
             payment.Amount = booking.TotalPrice;
             payment.Status = "Paid";
 
+            // Cập nhật trạng thái Booking
+            booking.Status = "Confirmed";
+
+            // Lưu Payment
             _context.Payments.Add(payment);
+
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
