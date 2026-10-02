@@ -40,9 +40,9 @@ namespace TravelTour.API.Controllers
 
         // POST: api/Customer
         [HttpPost]
-        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<Customer>> CreateCustomer(Customer customer)
         {
+            customer.CustomerId = 0; // ensure EF does not try to insert an explicit identity value
             _context.Customers.Add(customer);
             await _context.SaveChangesAsync();
 
