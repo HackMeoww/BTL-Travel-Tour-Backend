@@ -76,8 +76,18 @@ namespace TravelTour.API.Controllers
             // Cập nhật trạng thái Booking
             booking.Status = "Confirmed";
 
-            // Lưu Payment
+            // Tạo hóa đơn tự động
+            var invoice = new Invoice
+            {
+                BookingId = booking.BookingId,
+                InvoiceDate = DateTime.Now,
+                Amount = booking.TotalPrice,
+                PaymentStatus = "Paid"
+            };
+
+            // Lưu Payment và Invoice
             _context.Payments.Add(payment);
+            _context.Invoices.Add(invoice);
 
             await _context.SaveChangesAsync();
 
