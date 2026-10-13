@@ -19,6 +19,7 @@ namespace TravelTour.API.Controllers
 
         // GET: api/Booking
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<IEnumerable<Booking>>> GetBookings()
         {
             return await _context.Bookings.ToListAsync();
@@ -26,6 +27,7 @@ namespace TravelTour.API.Controllers
 
         // GET: api/Booking/1
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<Booking>> GetBooking(int id)
         {
             var booking = await _context.Bookings.FindAsync(id);
