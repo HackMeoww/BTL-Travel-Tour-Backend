@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TravelTour.API.Data;
 using TravelTour.API.Models;
 
@@ -31,9 +32,7 @@ namespace TravelTour.API.Controllers
             var review = await _context.Reviews.FindAsync(id);
 
             if (review == null)
-            {
                 return NotFound(new { message = "Không tìm thấy đánh giá" });
-            }
 
             return review;
         }
@@ -43,24 +42,30 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Customer,Admin")]
         public async Task<ActionResult<Review>> CreateReview(Review review)
         {
-            var tour = await _context.Tours.FindAsync(review.TourId);
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (tour == null)
-            {
-                return NotFound(new { message = "Không tìm thấy tour" });
-            }
+            if (!int.TryParse(userIdValue, out int userId))
+                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
 
-            var customer = await _context.Customers.FindAsync(review.CustomerId);
+            var isAdmin = User.IsInRole("Admin");
+
+            var customer = await _context.Customers
+                .FirstOrDefaultAsync(c => c.CustomerId == review.CustomerId);
 
             if (customer == null)
-            {
                 return NotFound(new { message = "Không tìm thấy khách hàng" });
-            }
+
+            if (!isAdmin && customer.UserId != userId)
+                return Forbid();
+
+            var tourExists = await _context.Tours
+                .AnyAsync(t => t.TourId == review.TourId);
+
+            if (!tourExists)
+                return NotFound(new { message = "Không tìm thấy tour" });
 
             if (review.Rating < 1 || review.Rating > 5)
-            {
                 return BadRequest(new { message = "Rating phải từ 1 đến 5" });
-            }
 
             review.CreatedAt = DateTime.Now;
 
@@ -77,33 +82,40 @@ namespace TravelTour.API.Controllers
         // PUT: api/Review/1
         [HttpPut("{id}")]
         [Authorize(Roles = "Customer,Admin")]
-        public async Task<IActionResult> UpdateReview(int id, Review review)
+        public async Task<IActionResult> UpdateReview(int id, Review input)
         {
-            if (id != review.ReviewId)
-            {
+            if (id != input.ReviewId)
                 return BadRequest(new { message = "ReviewId không khớp" });
+
+            var review = await _context.Reviews.FindAsync(id);
+
+            if (review == null)
+                return NotFound(new { message = "Không tìm thấy đánh giá" });
+
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(userIdValue, out int userId))
+                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
+
+            if (!User.IsInRole("Admin"))
+            {
+                var customer = await _context.Customers
+                    .FirstOrDefaultAsync(c => c.CustomerId == review.CustomerId);
+
+                if (customer == null || customer.UserId != userId)
+                    return Forbid();
+
+                if (input.CustomerId != review.CustomerId)
+                    return BadRequest(new { message = "Không được thay đổi khách hàng của đánh giá." });
             }
 
-            if (review.Rating < 1 || review.Rating > 5)
-            {
+            if (input.Rating < 1 || input.Rating > 5)
                 return BadRequest(new { message = "Rating phải từ 1 đến 5" });
-            }
 
-            _context.Entry(review).State = EntityState.Modified;
+            review.Rating = input.Rating;
+            review.Comment = input.Comment ?? string.Empty;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ReviewExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy đánh giá" });
-                }
-
-                throw;
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
@@ -116,19 +128,26 @@ namespace TravelTour.API.Controllers
             var review = await _context.Reviews.FindAsync(id);
 
             if (review == null)
-            {
                 return NotFound(new { message = "Không tìm thấy đánh giá" });
+
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(userIdValue, out int userId))
+                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
+
+            if (!User.IsInRole("Admin"))
+            {
+                var customer = await _context.Customers
+                    .FirstOrDefaultAsync(c => c.CustomerId == review.CustomerId);
+
+                if (customer == null || customer.UserId != userId)
+                    return Forbid();
             }
 
             _context.Reviews.Remove(review);
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool ReviewExists(int id)
-        {
-            return _context.Reviews.Any(e => e.ReviewId == id);
         }
     }
 }
