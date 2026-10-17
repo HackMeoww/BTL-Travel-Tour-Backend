@@ -96,9 +96,15 @@ namespace TravelTour.API.Controllers
                 return NotFound(new { message = "Không tìm thấy tour" });
             }
 
-            await _tourRepository.DeleteAsync(id);
-
-            return NoContent();
+            try
+            {
+                await _tourRepository.DeleteAsync(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "Không thể xóa tour này vì đã phát sinh dữ liệu ràng buộc (đơn đặt tour, lịch trình hoặc đánh giá). Vui lòng kiểm tra lại." });
+            }
         }
     }
 }
