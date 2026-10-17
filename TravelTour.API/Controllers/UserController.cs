@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,11 +9,11 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUserRepository _userRepository;
 
-        public UserController(AppDbContext context)
+        public UserController(IUserRepository userRepository)
         {
-            _context = context;
+            _userRepository = userRepository;
         }
 
         // GET: api/User
@@ -22,7 +21,8 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
-            return await _context.Users.ToListAsync();
+            var users = await _userRepository.GetAllAsync();
+            return Ok(users);
         }
 
         // GET: api/User/1
@@ -30,7 +30,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
 
             if (user == null)
             {
@@ -40,7 +40,7 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            return user;
+            return Ok(user);
         }
 
         // DELETE: api/User/1
@@ -48,7 +48,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
 
             if (user == null)
             {
@@ -66,9 +66,7 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            _context.Users.Remove(user);
-
-            await _context.SaveChangesAsync();
+            await _userRepository.DeleteAsync(id);
 
             return NoContent();
         }

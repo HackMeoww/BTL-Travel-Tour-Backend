@@ -1,10 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using TravelTour.API.Data;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -12,11 +11,18 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class VoucherController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IBookingRepository _bookingRepository;
+        private readonly ITourRepository _tourRepository;
+        private readonly ICustomerRepository _customerRepository;
 
-        public VoucherController(AppDbContext context)
+        public VoucherController(
+            IBookingRepository bookingRepository,
+            ITourRepository tourRepository,
+            ICustomerRepository customerRepository)
         {
-            _context = context;
+            _bookingRepository = bookingRepository;
+            _tourRepository = tourRepository;
+            _customerRepository = customerRepository;
         }
 
         // GET: api/Voucher/4
@@ -24,8 +30,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<IActionResult> GenerateVoucher(int bookingId)
         {
-            var booking = await _context.Bookings
-                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+            var booking = await _bookingRepository.GetByIdAsync(bookingId);
 
             if (booking == null)
             {
@@ -35,11 +40,7 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            var tour = await _context.Tours
-                .FirstOrDefaultAsync(t => t.TourId == booking.TourId);
-
-            var customer = await _context.Customers
-                .FirstOrDefaultAsync(c => c.CustomerId == booking.CustomerId);
+            var tour = await _tourRepository.GetByIdAsync(booking.TourId);
 
             if (tour == null)
             {
@@ -48,6 +49,8 @@ namespace TravelTour.API.Controllers
                     message = "Không tìm thấy tour"
                 });
             }
+
+            var customer = await _customerRepository.GetByIdAsync(booking.CustomerId);
 
             if (customer == null)
             {
@@ -92,6 +95,12 @@ namespace TravelTour.API.Controllers
 
                             column.Item().Text(
                                 $"Ngày đặt: {booking.BookingDate:dd/MM/yyyy HH:mm}");
+
+                            if (booking.DepartureDate.HasValue)
+                            {
+                                column.Item().Text(
+                                    $"Ngày khởi hành: {booking.DepartureDate.Value:dd/MM/yyyy}");
+                            }
 
                             column.Item().Text(
                                 $"Số người: {booking.NumberOfPeople}");

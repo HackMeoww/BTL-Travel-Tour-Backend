@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
+using TravelTour.API.DTOs;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,32 +10,49 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class InvoiceController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IInvoiceRepository _invoiceRepository;
+        private readonly IBookingRepository _bookingRepository;
 
-        public InvoiceController(AppDbContext context)
+        public InvoiceController(IInvoiceRepository invoiceRepository, IBookingRepository bookingRepository)
         {
-            _context = context;
+            _invoiceRepository = invoiceRepository;
+            _bookingRepository = bookingRepository;
         }
 
         // GET: api/Invoice
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Invoice>>> GetInvoices()
         {
-            return await _context.Invoices.ToListAsync();
+            var invoices = await _invoiceRepository.GetAllAsync();
+            return Ok(invoices);
         }
 
         // GET: api/Invoice/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Invoice>> GetInvoice(int id)
         {
-            var invoice = await _context.Invoices.FindAsync(id);
+            var invoice = await _invoiceRepository.GetByIdAsync(id);
 
             if (invoice == null)
             {
                 return NotFound(new { message = "Không tìm thấy hóa đơn" });
             }
 
-            return invoice;
+            return Ok(invoice);
+        }
+
+        // GET: api/Invoice/1/detail
+        [HttpGet("{id}/detail")]
+        public async Task<ActionResult<InvoiceDetailDto>> GetInvoiceDetail(int id)
+        {
+            var detail = await _invoiceRepository.GetDetailByIdAsync(id);
+
+            if (detail == null)
+            {
+                return NotFound(new { message = "Không tìm thấy thông tin chi tiết hóa đơn" });
+            }
+
+            return Ok(detail);
         }
 
         // POST: api/Invoice
@@ -43,7 +60,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<Invoice>> CreateInvoice(Invoice invoice)
         {
-            var booking = await _context.Bookings.FindAsync(invoice.BookingId);
+            var booking = await _bookingRepository.GetByIdAsync(invoice.BookingId);
 
             if (booking == null)
             {
@@ -54,8 +71,8 @@ namespace TravelTour.API.Controllers
             invoice.Amount = booking.TotalPrice;
             invoice.PaymentStatus = "Pending";
 
-            _context.Invoices.Add(invoice);
-            await _context.SaveChangesAsync();
+            var invoiceId = await _invoiceRepository.CreateAsync(invoice);
+            invoice.InvoiceId = invoiceId;
 
             return CreatedAtAction(
                 nameof(GetInvoice),
@@ -74,21 +91,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "InvoiceId không khớp" });
             }
 
-            _context.Entry(invoice).State = EntityState.Modified;
-
-            try
+            if (!await _invoiceRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy hóa đơn" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!InvoiceExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy hóa đơn" });
-                }
 
-                throw;
-            }
+            await _invoiceRepository.UpdateAsync(invoice);
 
             return NoContent();
         }
@@ -98,22 +106,16 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteInvoice(int id)
         {
-            var invoice = await _context.Invoices.FindAsync(id);
+            var invoice = await _invoiceRepository.GetByIdAsync(id);
 
             if (invoice == null)
             {
                 return NotFound(new { message = "Không tìm thấy hóa đơn" });
             }
 
-            _context.Invoices.Remove(invoice);
-            await _context.SaveChangesAsync();
+            await _invoiceRepository.DeleteAsync(id);
 
             return NoContent();
-        }
-
-        private bool InvoiceExists(int id)
-        {
-            return _context.Invoices.Any(e => e.InvoiceId == id);
         }
     }
 }

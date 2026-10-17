@@ -1,26 +1,30 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Client;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
 using System.Security.Claims;
 using System.Text;
-using TravelTour.API.Data;
 using TravelTour.API.DTOs;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
+
 namespace TravelTour.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUserRepository _userRepository;
+        private readonly ICustomerRepository _customerRepository;
         private readonly IConfiguration _configuration;
-        public AuthController(AppDbContext context, IConfiguration configuration)
+
+        public AuthController(
+            IUserRepository userRepository,
+            ICustomerRepository customerRepository,
+            IConfiguration configuration)
         {
-            _context = context;
+            _userRepository = userRepository;
+            _customerRepository = customerRepository;
             _configuration = configuration;
         }
 
@@ -28,56 +32,85 @@ namespace TravelTour.API.Controllers
         [HttpGet("test")]
         public async Task<IActionResult> Test()
         {
-            var users = await _context.Users.ToListAsync();
+            var users = await _userRepository.GetAllAsync();
             return Ok(users);
         }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == dto.Username);
+            var existingUser = await _userRepository.GetByUsernameAsync(dto.Username);
             if (existingUser != null)
             {
-                return BadRequest("Tên đăng nhập đã tồn tại!!");
+                return BadRequest(new { message = "Tên đăng nhập đã tồn tại!!" });
             }
+
             var user = new User
             {
                 UserName = dto.Username,
-                PassWord = dto.Password, 
+                PassWord = dto.Password,
                 FullName = dto.FullName,
                 Email = dto.Email,
                 Phone = dto.Phone,
                 Role = "Customer"
             };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+
+            var userId = await _userRepository.CreateAsync(user);
+            user.UserId = userId;
+
+            // Tự động tạo hồ sơ khách hàng tương ứng cho tài khoản Customer mới
+            var customer = new Customer
+            {
+                UserId = userId,
+                FullName = dto.FullName,
+                Email = dto.Email,
+                Phone = dto.Phone,
+                Address = dto.Address ?? string.Empty
+            };
+            var customerId = await _customerRepository.CreateAsync(customer);
+
             return Ok(new
             {
                 message = "Đăng ký thành công!!",
                 userId = user.UserId,
                 username = user.UserName,
-                role = user.Role
+                role = user.Role,
+                customerId = customerId
             });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u =>
-                    u.UserName == dto.UserName &&
-                    u.PassWord == dto.Password);
+            var user = await _userRepository.GetByUsernameAndPasswordAsync(dto.UserName, dto.Password);
 
             if (user == null)
             {
-                return Unauthorized("Tên đăng nhập hoặc mật khẩu không đúng.");
+                return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng." });
+            }
+
+            // Đảm bảo tài khoản Customer luôn có hồ sơ trong bảng Customers
+            var customer = await _customerRepository.GetByUserIdAsync(user.UserId);
+            if (customer == null && user.Role == "Customer")
+            {
+                customer = new Customer
+                {
+                    UserId = user.UserId,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    Phone = user.Phone,
+                    Address = string.Empty
+                };
+                var customerId = await _customerRepository.CreateAsync(customer);
+                customer.CustomerId = customerId;
             }
 
             var claims = new[]
             {
-        new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-        new Claim(ClaimTypes.Name, user.UserName),
-        new Claim(ClaimTypes.Role, user.Role)
-    };
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.Role, user.Role)
+            };
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
@@ -101,7 +134,8 @@ namespace TravelTour.API.Controllers
                 userId = user.UserId,
                 userName = user.UserName,
                 fullName = user.FullName,
-                role = user.Role
+                role = user.Role,
+                customerId = customer?.CustomerId
             });
         }
     }

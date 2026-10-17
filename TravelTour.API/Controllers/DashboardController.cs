@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,24 +9,27 @@ namespace TravelTour.API.Controllers
     [Authorize(Roles = "Admin")]
     public class DashboardController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ICustomerRepository _customerRepository;
+        private readonly IBookingRepository _bookingRepository;
+        private readonly IPaymentRepository _paymentRepository;
 
-        public DashboardController(AppDbContext context)
+        public DashboardController(
+            ICustomerRepository customerRepository,
+            IBookingRepository bookingRepository,
+            IPaymentRepository paymentRepository)
         {
-            _context = context;
+            _customerRepository = customerRepository;
+            _bookingRepository = bookingRepository;
+            _paymentRepository = paymentRepository;
         }
 
         // GET: api/Dashboard
         [HttpGet]
         public async Task<IActionResult> GetDashboard()
         {
-            var totalCustomers = await _context.Customers.CountAsync();
-
-            var totalBookings = await _context.Bookings.CountAsync();
-
-            var totalRevenue = await _context.Payments
-                .Where(p => p.Status == "Paid")
-                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+            var totalCustomers = await _customerRepository.CountAsync();
+            var totalBookings = await _bookingRepository.CountAsync();
+            var totalRevenue = await _paymentRepository.GetTotalRevenueAsync();
 
             return Ok(new
             {

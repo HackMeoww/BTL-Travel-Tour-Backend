@@ -1,4 +1,4 @@
-﻿namespace TravelTour.API.Models
+namespace TravelTour.API.Models
 {
     public class Booking
     {
@@ -6,6 +6,7 @@
         public int TourId { get; set; }
         public int CustomerId { get; set; }
         public DateTime BookingDate { get; set; }
+        public DateTime? DepartureDate { get; set; }
         public int NumberOfPeople { get; set; }
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = "Pending";

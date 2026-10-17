@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,34 +9,45 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class BookingController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IBookingRepository _bookingRepository;
+        private readonly ITourRepository _tourRepository;
+        private readonly ICustomerRepository _customerRepository;
+        private readonly IPaymentRepository _paymentRepository;
 
-        public BookingController(AppDbContext context)
+        public BookingController(
+            IBookingRepository bookingRepository,
+            ITourRepository tourRepository,
+            ICustomerRepository customerRepository,
+            IPaymentRepository paymentRepository)
         {
-            _context = context;
+            _bookingRepository = bookingRepository;
+            _tourRepository = tourRepository;
+            _customerRepository = customerRepository;
+            _paymentRepository = paymentRepository;
         }
 
         // GET: api/Booking
         [HttpGet]
-        [Authorize(Roles = "Admin,Staff")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<ActionResult<IEnumerable<Booking>>> GetBookings()
         {
-            return await _context.Bookings.ToListAsync();
+            var bookings = await _bookingRepository.GetAllAsync();
+            return Ok(bookings);
         }
 
         // GET: api/Booking/1
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<ActionResult<Booking>> GetBooking(int id)
         {
-            var booking = await _context.Bookings.FindAsync(id);
+            var booking = await _bookingRepository.GetByIdAsync(id);
 
             if (booking == null)
             {
                 return NotFound(new { message = "Không tìm thấy booking" });
             }
 
-            return booking;
+            return Ok(booking);
         }
 
         // POST: api/Booking
@@ -45,14 +55,14 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<ActionResult<Booking>> CreateBooking(Booking booking)
         {
-            var tour = await _context.Tours.FindAsync(booking.TourId);
+            var tour = await _tourRepository.GetByIdAsync(booking.TourId);
 
             if (tour == null)
             {
                 return NotFound(new { message = "Không tìm thấy tour" });
             }
 
-            var customer = await _context.Customers.FindAsync(booking.CustomerId);
+            var customer = await _customerRepository.GetByIdAsync(booking.CustomerId);
 
             if (customer == null)
             {
@@ -65,11 +75,15 @@ namespace TravelTour.API.Controllers
             }
 
             booking.BookingDate = DateTime.Now;
+            if (!booking.DepartureDate.HasValue)
+            {
+                booking.DepartureDate = DateTime.Today.AddDays(1);
+            }
             booking.TotalPrice = tour.Price * booking.NumberOfPeople;
             booking.Status = "Pending";
 
-            _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
+            var bookingId = await _bookingRepository.CreateAsync(booking);
+            booking.BookingId = bookingId;
 
             return CreatedAtAction(
                 nameof(GetBooking),
@@ -88,21 +102,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "BookingId không khớp" });
             }
 
-            _context.Entry(booking).State = EntityState.Modified;
-
-            try
+            if (!await _bookingRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy booking" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!BookingExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy booking" });
-                }
 
-                throw;
-            }
+            await _bookingRepository.UpdateAsync(booking);
 
             return NoContent();
         }
@@ -112,7 +117,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<IActionResult> CancelBooking(int id)
         {
-            var booking = await _context.Bookings.FindAsync(id);
+            var booking = await _bookingRepository.GetByIdAsync(id);
 
             if (booking == null)
             {
@@ -129,9 +134,8 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "Booking đã được hoàn tiền" });
             }
 
+            await _bookingRepository.UpdateStatusAsync(id, "Cancelled");
             booking.Status = "Cancelled";
-
-            await _context.SaveChangesAsync();
 
             return Ok(new
             {
@@ -146,7 +150,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> RefundBooking(int id)
         {
-            var booking = await _context.Bookings.FindAsync(id);
+            var booking = await _bookingRepository.GetByIdAsync(id);
 
             if (booking == null)
             {
@@ -161,8 +165,7 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            var payment = await _context.Payments
-                .FirstOrDefaultAsync(p => p.BookingId == booking.BookingId);
+            var payment = await _paymentRepository.GetByBookingIdAsync(booking.BookingId);
 
             if (payment == null)
             {
@@ -188,10 +191,11 @@ namespace TravelTour.API.Controllers
                 });
             }
 
+            await _paymentRepository.UpdateStatusAsync(payment.PaymentId, "Refunded");
+            await _bookingRepository.UpdateStatusAsync(booking.BookingId, "Refunded");
+
             payment.Status = "Refunded";
             booking.Status = "Refunded";
-
-            await _context.SaveChangesAsync();
 
             return Ok(new
             {
@@ -208,22 +212,16 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            var booking = await _context.Bookings.FindAsync(id);
+            var booking = await _bookingRepository.GetByIdAsync(id);
 
             if (booking == null)
             {
                 return NotFound(new { message = "Không tìm thấy booking" });
             }
 
-            _context.Bookings.Remove(booking);
-            await _context.SaveChangesAsync();
+            await _bookingRepository.DeleteAsync(id);
 
             return NoContent();
-        }
-
-        private bool BookingExists(int id)
-        {
-            return _context.Bookings.Any(e => e.BookingId == id);
         }
     }
 }

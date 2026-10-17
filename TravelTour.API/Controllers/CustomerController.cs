@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,41 +9,41 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class CustomerController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ICustomerRepository _customerRepository;
 
-        public CustomerController(AppDbContext context)
+        public CustomerController(ICustomerRepository customerRepository)
         {
-            _context = context;
+            _customerRepository = customerRepository;
         }
 
         // GET: api/Customer
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
         {
-            return await _context.Customers.ToListAsync();
+            var customers = await _customerRepository.GetAllAsync();
+            return Ok(customers);
         }
 
         // GET: api/Customer/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Customer>> GetCustomer(int id)
         {
-            var customer = await _context.Customers.FindAsync(id);
+            var customer = await _customerRepository.GetByIdAsync(id);
 
             if (customer == null)
             {
                 return NotFound(new { message = "Không tìm thấy khách hàng" });
             }
 
-            return customer;
+            return Ok(customer);
         }
 
         // POST: api/Customer
         [HttpPost]
         public async Task<ActionResult<Customer>> CreateCustomer(Customer customer)
         {
-            customer.CustomerId = 0; // ensure EF does not try to insert an explicit identity value
-            _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
+            var customerId = await _customerRepository.CreateAsync(customer);
+            customer.CustomerId = customerId;
 
             return CreatedAtAction(
                 nameof(GetCustomer),
@@ -63,21 +62,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "CustomerId không khớp" });
             }
 
-            _context.Entry(customer).State = EntityState.Modified;
-
-            try
+            if (!await _customerRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy khách hàng" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CustomerExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy khách hàng" });
-                }
 
-                throw;
-            }
+            await _customerRepository.UpdateAsync(customer);
 
             return NoContent();
         }
@@ -87,15 +77,14 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteCustomer(int id)
         {
-            var customer = await _context.Customers.FindAsync(id);
+            var customer = await _customerRepository.GetByIdAsync(id);
 
             if (customer == null)
             {
                 return NotFound(new { message = "Không tìm thấy khách hàng" });
             }
 
-            _context.Customers.Remove(customer);
-            await _context.SaveChangesAsync();
+            await _customerRepository.DeleteAsync(id);
 
             return NoContent();
         }
@@ -105,17 +94,13 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> GetCustomerCount()
         {
-            var totalCustomers = await _context.Customers.CountAsync();
+            var totalCustomers = await _customerRepository.CountAsync();
 
             return Ok(new
             {
                 message = "Thống kê số lượng khách hàng thành công",
                 totalCustomers = totalCustomers
             });
-        }
-        private bool CustomerExists(int id)
-        {
-            return _context.Customers.Any(e => e.CustomerId == id);
         }
     }
 }

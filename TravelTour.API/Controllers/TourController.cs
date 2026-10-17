@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,18 +9,19 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class TourController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ITourRepository _tourRepository;
 
-        public TourController(AppDbContext context)
+        public TourController(ITourRepository tourRepository)
         {
-            _context = context;
+            _tourRepository = tourRepository;
         }
 
         // GET: api/Tour
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Tour>>> GetTours()
         {
-            return await _context.Tours.ToListAsync();
+            var tours = await _tourRepository.GetAllAsync();
+            return Ok(tours);
         }
 
         // GET: api/Tour/search?destination=Quang Ninh&minPrice=1000000&maxPrice=5000000
@@ -31,38 +31,22 @@ namespace TravelTour.API.Controllers
             decimal? minPrice,
             decimal? maxPrice)
         {
-            var query = _context.Tours.AsQueryable();
-
-            if (!string.IsNullOrEmpty(destination))
-            {
-                query = query.Where(t =>
-                    t.Destination.Contains(destination));
-            }
-
-            if (minPrice.HasValue)
-            {
-                query = query.Where(t => t.Price >= minPrice.Value);
-            }
-
-            if (maxPrice.HasValue)
-            {
-                query = query.Where(t => t.Price <= maxPrice.Value);
-            }
-
-            return await query.ToListAsync();
+            var tours = await _tourRepository.SearchAsync(destination, minPrice, maxPrice);
+            return Ok(tours);
         }
+
         // GET: api/Tour/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Tour>> GetTour(int id)
         {
-            var tour = await _context.Tours.FindAsync(id);
+            var tour = await _tourRepository.GetByIdAsync(id);
 
             if (tour == null)
             {
                 return NotFound(new { message = "Không tìm thấy tour" });
             }
 
-            return tour;
+            return Ok(tour);
         }
 
         // POST: api/Tour
@@ -70,8 +54,8 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Tour>> CreateTour(Tour tour)
         {
-            _context.Tours.Add(tour);
-            await _context.SaveChangesAsync();
+            var tourId = await _tourRepository.CreateAsync(tour);
+            tour.TourId = tourId;
 
             return CreatedAtAction(
                 nameof(GetTour),
@@ -90,21 +74,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "TourId không khớp" });
             }
 
-            _context.Entry(tour).State = EntityState.Modified;
-
-            try
+            if (!await _tourRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy tour" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!TourExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy tour" });
-                }
 
-                throw;
-            }
+            await _tourRepository.UpdateAsync(tour);
 
             return NoContent();
         }
@@ -114,22 +89,16 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteTour(int id)
         {
-            var tour = await _context.Tours.FindAsync(id);
+            var tour = await _tourRepository.GetByIdAsync(id);
 
             if (tour == null)
             {
                 return NotFound(new { message = "Không tìm thấy tour" });
             }
 
-            _context.Tours.Remove(tour);
-            await _context.SaveChangesAsync();
+            await _tourRepository.DeleteAsync(id);
 
             return NoContent();
-        }
-
-        private bool TourExists(int id)
-        {
-            return _context.Tours.Any(e => e.TourId == id);
         }
     }
 }

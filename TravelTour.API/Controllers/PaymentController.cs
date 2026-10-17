@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,32 +9,35 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class PaymentController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPaymentRepository _paymentRepository;
+        private readonly IBookingRepository _bookingRepository;
 
-        public PaymentController(AppDbContext context)
+        public PaymentController(IPaymentRepository paymentRepository, IBookingRepository bookingRepository)
         {
-            _context = context;
+            _paymentRepository = paymentRepository;
+            _bookingRepository = bookingRepository;
         }
 
         // GET: api/Payment
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Payment>>> GetPayments()
         {
-            return await _context.Payments.ToListAsync();
+            var payments = await _paymentRepository.GetAllAsync();
+            return Ok(payments);
         }
 
         // GET: api/Payment/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Payment>> GetPayment(int id)
         {
-            var payment = await _context.Payments.FindAsync(id);
+            var payment = await _paymentRepository.GetByIdAsync(id);
 
             if (payment == null)
             {
                 return NotFound(new { message = "Không tìm thấy thanh toán" });
             }
 
-            return payment;
+            return Ok(payment);
         }
 
         // POST: api/Payment
@@ -43,9 +45,7 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<ActionResult<Payment>> CreatePayment(Payment payment)
         {
-            // Tìm Booking
-            var booking = await _context.Bookings
-                .FindAsync(payment.BookingId);
+            var booking = await _bookingRepository.GetByIdAsync(payment.BookingId);
 
             if (booking == null)
             {
@@ -55,12 +55,9 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            // Kiểm tra Booking đã thanh toán chưa
-            var existingPayment = await _context.Payments
-                .FirstOrDefaultAsync(p => p.BookingId == payment.BookingId);
+            var existingPayment = await _paymentRepository.GetByBookingIdAsync(payment.BookingId);
 
-            if (existingPayment != null &&
-                existingPayment.Status == "Paid")
+            if (existingPayment != null && existingPayment.Status == "Paid")
             {
                 return BadRequest(new
                 {
@@ -68,15 +65,10 @@ namespace TravelTour.API.Controllers
                 });
             }
 
-            // Backend tự thiết lập thông tin thanh toán
             payment.PaymentDate = DateTime.Now;
             payment.Amount = booking.TotalPrice;
             payment.Status = "Paid";
 
-            // Cập nhật trạng thái Booking
-            booking.Status = "Confirmed";
-
-            // Tạo hóa đơn tự động
             var invoice = new Invoice
             {
                 BookingId = booking.BookingId,
@@ -85,11 +77,8 @@ namespace TravelTour.API.Controllers
                 PaymentStatus = "Paid"
             };
 
-            // Lưu Payment và Invoice
-            _context.Payments.Add(payment);
-            _context.Invoices.Add(invoice);
-
-            await _context.SaveChangesAsync();
+            var paymentId = await _paymentRepository.CreatePaymentTransactionAsync(payment, invoice, booking.BookingId, "Confirmed");
+            payment.PaymentId = paymentId;
 
             return CreatedAtAction(
                 nameof(GetPayment),
@@ -108,21 +97,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "PaymentId không khớp" });
             }
 
-            _context.Entry(payment).State = EntityState.Modified;
-
-            try
+            if (!await _paymentRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy thanh toán" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!PaymentExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy thanh toán" });
-                }
 
-                throw;
-            }
+            await _paymentRepository.UpdateAsync(payment);
 
             return NoContent();
         }
@@ -132,15 +112,14 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeletePayment(int id)
         {
-            var payment = await _context.Payments.FindAsync(id);
+            var payment = await _paymentRepository.GetByIdAsync(id);
 
             if (payment == null)
             {
                 return NotFound(new { message = "Không tìm thấy thanh toán" });
             }
 
-            _context.Payments.Remove(payment);
-            await _context.SaveChangesAsync();
+            await _paymentRepository.DeleteAsync(id);
 
             return NoContent();
         }
@@ -150,19 +129,13 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> GetRevenue()
         {
-            var totalRevenue = await _context.Payments
-                .Where(p => p.Status == "Paid")
-                .SumAsync(p => p.Amount);
+            var totalRevenue = await _paymentRepository.GetTotalRevenueAsync();
 
             return Ok(new
             {
                 message = "Thống kê doanh thu thành công",
                 totalRevenue = totalRevenue
             });
-        }
-        private bool PaymentExists(int id)
-        {
-            return _context.Payments.Any(e => e.PaymentId == id);
         }
     }
 }

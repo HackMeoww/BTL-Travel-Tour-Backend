@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TravelTour.API.Data;
 using TravelTour.API.Models;
+using TravelTour.API.Repositories;
 
 namespace TravelTour.API.Controllers
 {
@@ -10,42 +9,41 @@ namespace TravelTour.API.Controllers
     [ApiController]
     public class ItineraryController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IItineraryRepository _itineraryRepository;
 
-        public ItineraryController(AppDbContext context)
+        public ItineraryController(IItineraryRepository itineraryRepository)
         {
-            _context = context;
+            _itineraryRepository = itineraryRepository;
         }
 
         // GET: api/Itinerary
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Itinerary>>> GetItineraries()
         {
-            return await _context.Itineraries.ToListAsync();
+            var itineraries = await _itineraryRepository.GetAllAsync();
+            return Ok(itineraries);
         }
 
         // GET: api/Itinerary/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Itinerary>> GetItinerary(int id)
         {
-            var itinerary = await _context.Itineraries.FindAsync(id);
+            var itinerary = await _itineraryRepository.GetByIdAsync(id);
 
             if (itinerary == null)
             {
                 return NotFound(new { message = "Không tìm thấy lịch trình" });
             }
 
-            return itinerary;
+            return Ok(itinerary);
         }
 
         // GET: api/Itinerary/tour/1
         [HttpGet("tour/{tourId}")]
         public async Task<ActionResult<IEnumerable<Itinerary>>> GetItinerariesByTour(int tourId)
         {
-            return await _context.Itineraries
-                .Where(i => i.TourId == tourId)
-                .OrderBy(i => i.DayNumber)
-                .ToListAsync();
+            var itineraries = await _itineraryRepository.GetByTourIdAsync(tourId);
+            return Ok(itineraries);
         }
 
         // POST: api/Itinerary
@@ -53,8 +51,8 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Itinerary>> CreateItinerary(Itinerary itinerary)
         {
-            _context.Itineraries.Add(itinerary);
-            await _context.SaveChangesAsync();
+            var itineraryId = await _itineraryRepository.CreateAsync(itinerary);
+            itinerary.ItineraryId = itineraryId;
 
             return CreatedAtAction(
                 nameof(GetItinerary),
@@ -73,21 +71,12 @@ namespace TravelTour.API.Controllers
                 return BadRequest(new { message = "ItineraryId không khớp" });
             }
 
-            _context.Entry(itinerary).State = EntityState.Modified;
-
-            try
+            if (!await _itineraryRepository.ExistsAsync(id))
             {
-                await _context.SaveChangesAsync();
+                return NotFound(new { message = "Không tìm thấy lịch trình" });
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ItineraryExists(id))
-                {
-                    return NotFound(new { message = "Không tìm thấy lịch trình" });
-                }
 
-                throw;
-            }
+            await _itineraryRepository.UpdateAsync(itinerary);
 
             return NoContent();
         }
@@ -97,22 +86,16 @@ namespace TravelTour.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteItinerary(int id)
         {
-            var itinerary = await _context.Itineraries.FindAsync(id);
+            var itinerary = await _itineraryRepository.GetByIdAsync(id);
 
             if (itinerary == null)
             {
                 return NotFound(new { message = "Không tìm thấy lịch trình" });
             }
 
-            _context.Itineraries.Remove(itinerary);
-            await _context.SaveChangesAsync();
+            await _itineraryRepository.DeleteAsync(id);
 
             return NoContent();
-        }
-
-        private bool ItineraryExists(int id)
-        {
-            return _context.Itineraries.Any(e => e.ItineraryId == id);
         }
     }
 }
