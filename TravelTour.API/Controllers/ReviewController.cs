@@ -46,9 +46,17 @@ namespace TravelTour.API.Controllers
             return Ok(review);
         }
 
+        // GET: api/Review/tour/1
+        [HttpGet("tour/{tourId}")]
+        public async Task<ActionResult<IEnumerable<Review>>> GetReviewsByTour(int tourId)
+        {
+            var reviews = await _reviewRepository.GetByTourIdAsync(tourId);
+            return Ok(reviews);
+        }
+
         // POST: api/Review
         [HttpPost]
-        [Authorize(Roles = "Customer,Admin")]
+        [Authorize(Roles = "Customer,Staff,Admin")]
         public async Task<ActionResult<Review>> CreateReview(Review review)
         {
             var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);

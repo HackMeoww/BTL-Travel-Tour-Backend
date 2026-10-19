@@ -28,6 +28,13 @@ namespace TravelTour.API.Repositories
             return await connection.QueryFirstOrDefaultAsync<Invoice>(sql, new { Id = id });
         }
 
+        public async Task<Invoice?> GetByBookingIdAsync(int bookingId)
+        {
+            const string sql = "SELECT TOP 1 * FROM Invoices WHERE BookingId = @BookingId ORDER BY InvoiceId DESC";
+            using var connection = _context.CreateConnection();
+            return await connection.QueryFirstOrDefaultAsync<Invoice>(sql, new { BookingId = bookingId });
+        }
+
         public async Task<InvoiceDetailDto?> GetDetailByIdAsync(int id)
         {
             const string sql = @"
@@ -63,6 +70,44 @@ namespace TravelTour.API.Repositories
 
             using var connection = _context.CreateConnection();
             return await connection.QueryFirstOrDefaultAsync<InvoiceDetailDto>(sql, new { Id = id });
+        }
+
+        public async Task<InvoiceDetailDto?> GetDetailByBookingIdAsync(int bookingId)
+        {
+            const string sql = @"
+                SELECT TOP 1
+                    i.InvoiceId,
+                    i.InvoiceDate,
+                    i.Amount,
+                    i.PaymentStatus,
+                    b.BookingId,
+                    b.BookingDate,
+                    b.DepartureDate,
+                    b.NumberOfPeople,
+                    b.TotalPrice,
+                    b.Status AS BookingStatus,
+                    ISNULL(t.TourId, 0) AS TourId,
+                    ISNULL(t.TourName, N'Tour Du Lịch') AS TourName,
+                    ISNULL(t.Destination, N'') AS Destination,
+                    ISNULL(t.Duration, 1) AS Duration,
+                    ISNULL(t.Price, 0) AS TourPrice,
+                    ISNULL(c.CustomerId, 0) AS CustomerId,
+                    ISNULL(c.FullName, N'Khách hàng') AS CustomerName,
+                    ISNULL(c.Phone, N'') AS CustomerPhone,
+                    ISNULL(c.Email, N'') AS CustomerEmail,
+                    ISNULL(c.Address, N'') AS CustomerAddress,
+                    p.PaymentMethod,
+                    p.PaymentDate
+                FROM Invoices i
+                INNER JOIN Bookings b ON i.BookingId = b.BookingId
+                LEFT JOIN Tours t ON b.TourId = t.TourId
+                LEFT JOIN Customers c ON b.CustomerId = c.CustomerId
+                LEFT JOIN Payments p ON b.BookingId = p.BookingId
+                WHERE b.BookingId = @BookingId
+                ORDER BY i.InvoiceId DESC";
+
+            using var connection = _context.CreateConnection();
+            return await connection.QueryFirstOrDefaultAsync<InvoiceDetailDto>(sql, new { BookingId = bookingId });
         }
 
         public async Task<int> CreateAsync(Invoice invoice)

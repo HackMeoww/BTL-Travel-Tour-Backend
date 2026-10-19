@@ -55,6 +55,34 @@ namespace TravelTour.API.Controllers
             return Ok(detail);
         }
 
+        // GET: api/Invoice/booking/1
+        [HttpGet("booking/{bookingId}")]
+        public async Task<ActionResult<Invoice>> GetInvoiceByBooking(int bookingId)
+        {
+            var invoice = await _invoiceRepository.GetByBookingIdAsync(bookingId);
+
+            if (invoice == null)
+            {
+                return NotFound(new { message = "Không tìm thấy hóa đơn cho booking này" });
+            }
+
+            return Ok(invoice);
+        }
+
+        // GET: api/Invoice/booking/1/detail
+        [HttpGet("booking/{bookingId}/detail")]
+        public async Task<ActionResult<InvoiceDetailDto>> GetInvoiceDetailByBooking(int bookingId)
+        {
+            var detail = await _invoiceRepository.GetDetailByBookingIdAsync(bookingId);
+
+            if (detail == null)
+            {
+                return NotFound(new { message = "Không tìm thấy chi tiết hóa đơn cho booking này" });
+            }
+
+            return Ok(detail);
+        }
+
         // POST: api/Invoice
         [HttpPost]
         [Authorize(Roles = "Admin,Staff")]

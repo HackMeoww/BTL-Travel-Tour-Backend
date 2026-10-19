@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TravelTour.API.Models;
@@ -48,6 +49,36 @@ namespace TravelTour.API.Controllers
             }
 
             return Ok(booking);
+        }
+
+        // GET: api/Booking/customer/1
+        [HttpGet("customer/{customerId}")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        public async Task<ActionResult<IEnumerable<Booking>>> GetBookingsByCustomer(int customerId)
+        {
+            var bookings = await _bookingRepository.GetByCustomerIdAsync(customerId);
+            return Ok(bookings);
+        }
+
+        // GET: api/Booking/my
+        [HttpGet("my")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        public async Task<ActionResult<IEnumerable<Booking>>> GetMyBookings()
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
+            }
+
+            var customer = await _customerRepository.GetByUserIdAsync(userId);
+            if (customer == null)
+            {
+                return Ok(Array.Empty<Booking>());
+            }
+
+            var bookings = await _bookingRepository.GetByCustomerIdAsync(customer.CustomerId);
+            return Ok(bookings);
         }
 
         // POST: api/Booking

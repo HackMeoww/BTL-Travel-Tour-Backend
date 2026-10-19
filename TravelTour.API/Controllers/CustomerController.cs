@@ -38,6 +38,20 @@ namespace TravelTour.API.Controllers
             return Ok(customer);
         }
 
+        // GET: api/Customer/user/1
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<Customer>> GetCustomerByUserId(int userId)
+        {
+            var customer = await _customerRepository.GetByUserIdAsync(userId);
+
+            if (customer == null)
+            {
+                return NotFound(new { message = "Không tìm thấy hồ sơ khách hàng cho tài khoản này" });
+            }
+
+            return Ok(customer);
+        }
+
         // POST: api/Customer
         [HttpPost]
         public async Task<ActionResult<Customer>> CreateCustomer(Customer customer)
@@ -54,7 +68,7 @@ namespace TravelTour.API.Controllers
 
         // PUT: api/Customer/1
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
         public async Task<IActionResult> UpdateCustomer(int id, Customer customer)
         {
             if (id != customer.CustomerId)

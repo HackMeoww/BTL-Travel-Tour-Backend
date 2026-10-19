@@ -6,6 +6,7 @@ namespace TravelTour.API.Repositories
     {
         Task<IEnumerable<Booking>> GetAllAsync();
         Task<Booking?> GetByIdAsync(int id);
+        Task<IEnumerable<Booking>> GetByCustomerIdAsync(int customerId);
         Task<int> CreateAsync(Booking booking);
         Task<int> UpdateAsync(Booking booking);
         Task<int> UpdateStatusAsync(int id, string status);

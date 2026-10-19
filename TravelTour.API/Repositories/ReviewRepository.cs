@@ -27,6 +27,13 @@ namespace TravelTour.API.Repositories
             return await connection.QueryFirstOrDefaultAsync<Review>(sql, new { Id = id });
         }
 
+        public async Task<IEnumerable<Review>> GetByTourIdAsync(int tourId)
+        {
+            const string sql = "SELECT * FROM Reviews WHERE TourId = @TourId ORDER BY CreatedAt DESC";
+            using var connection = _context.CreateConnection();
+            return await connection.QueryAsync<Review>(sql, new { TourId = tourId });
+        }
+
         public async Task<int> CreateAsync(Review review)
         {
             const string sql = @"

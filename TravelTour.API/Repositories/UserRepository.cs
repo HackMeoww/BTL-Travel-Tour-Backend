@@ -52,6 +52,22 @@ namespace TravelTour.API.Repositories
             return await connection.QuerySingleAsync<int>(sql, user);
         }
 
+        public async Task<int> UpdateAsync(User user)
+        {
+            const string sql = @"
+                UPDATE Users
+                SET UserName = @UserName,
+                    PassWord = @PassWord,
+                    FullName = @FullName,
+                    Email = @Email,
+                    Phone = @Phone,
+                    Role = @Role
+                WHERE UserId = @UserId";
+
+            using var connection = _context.CreateConnection();
+            return await connection.ExecuteAsync(sql, user);
+        }
+
         public async Task<int> DeleteAsync(int id)
         {
             const string sql = "DELETE FROM Users WHERE UserId = @Id";

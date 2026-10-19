@@ -40,6 +40,20 @@ namespace TravelTour.API.Controllers
             return Ok(payment);
         }
 
+        // GET: api/Payment/booking/1
+        [HttpGet("booking/{bookingId}")]
+        public async Task<ActionResult<Payment>> GetPaymentByBooking(int bookingId)
+        {
+            var payment = await _paymentRepository.GetByBookingIdAsync(bookingId);
+
+            if (payment == null)
+            {
+                return NotFound(new { message = "Không tìm thấy thanh toán cho booking này" });
+            }
+
+            return Ok(payment);
+        }
+
         // POST: api/Payment
         [HttpPost]
         [Authorize(Roles = "Admin,Staff,Customer")]

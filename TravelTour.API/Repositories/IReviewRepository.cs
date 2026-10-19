@@ -6,6 +6,7 @@ namespace TravelTour.API.Repositories
     {
         Task<IEnumerable<Review>> GetAllAsync();
         Task<Review?> GetByIdAsync(int id);
+        Task<IEnumerable<Review>> GetByTourIdAsync(int tourId);
         Task<int> CreateAsync(Review review);
         Task<int> UpdateAsync(Review review);
         Task<int> DeleteAsync(int id);

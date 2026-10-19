@@ -51,7 +51,7 @@ namespace TravelTour.API.Controllers
 
         // POST: api/Tour
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<Tour>> CreateTour(Tour tour)
         {
             var tourId = await _tourRepository.CreateAsync(tour);
@@ -66,7 +66,7 @@ namespace TravelTour.API.Controllers
 
         // PUT: api/Tour/1
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> UpdateTour(int id, Tour tour)
         {
             if (id != tour.TourId)
@@ -86,7 +86,7 @@ namespace TravelTour.API.Controllers
 
         // DELETE: api/Tour/1
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteTour(int id)
         {
             var tour = await _tourRepository.GetByIdAsync(id);
