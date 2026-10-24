@@ -34,6 +34,13 @@ namespace TravelTour.API.Repositories
             return await connection.QueryFirstOrDefaultAsync<User>(sql, new { Username = username });
         }
 
+        public async Task<User?> GetByEmailAsync(string email)
+        {
+            const string sql = "SELECT * FROM Users WHERE LOWER(Email) = LOWER(@Email)";
+            using var connection = _context.CreateConnection();
+            return await connection.QueryFirstOrDefaultAsync<User>(sql, new { Email = email.Trim() });
+        }
+
         public async Task<User?> GetByUsernameAndPasswordAsync(string username, string password)
         {
             const string sql = "SELECT * FROM Users WHERE UserName = @Username AND PassWord = @Password";

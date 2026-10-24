@@ -120,7 +120,7 @@ namespace TravelTour.API.Controllers
 
                     page.Footer()
                         .AlignCenter()
-                        .Text("TravelTour");
+                        .Text("HackMeoww - Travel Tour");
                 });
             }).GeneratePdf();
 

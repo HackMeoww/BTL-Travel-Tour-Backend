@@ -7,6 +7,7 @@ namespace TravelTour.API.Repositories
         Task<IEnumerable<User>> GetAllAsync();
         Task<User?> GetByIdAsync(int id);
         Task<User?> GetByUsernameAsync(string username);
+        Task<User?> GetByEmailAsync(string email);
         Task<User?> GetByUsernameAndPasswordAsync(string username, string password);
         Task<int> CreateAsync(User user);
         Task<int> UpdateAsync(User user);

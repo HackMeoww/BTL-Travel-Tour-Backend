@@ -5,6 +5,7 @@ using Microsoft.OpenApi;
 using System.Text;
 using TravelTour.API.Data;
 using TravelTour.API.Repositories;
+using TravelTour.API.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -44,6 +45,7 @@ builder.Services.AddAuthorization();
 // Dapper & Repositories
 builder.Services.AddSingleton<DapperContext>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ITourRepository, TourRepository>();
 builder.Services.AddScoped<IItineraryRepository, ItineraryRepository>();
