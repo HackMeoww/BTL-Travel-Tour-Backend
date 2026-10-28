@@ -32,13 +32,7 @@ namespace TravelTour.API.Controllers
             _emailService = emailService;
         }
 
-        [Authorize(Roles = "Admin")]
-        [HttpGet("test")]
-        public async Task<IActionResult> Test()
-        {
-            var users = await _userRepository.GetAllAsync();
-            return Ok(users);
-        }
+      
 
         [HttpPost("register-send-otp")]
         public async Task<IActionResult> RegisterSendOtp([FromBody] RegisterSendOtpDto dto)
@@ -186,81 +180,6 @@ namespace TravelTour.API.Controllers
                 fullName = user.FullName,
                 role = user.Role,
                 customerId = customer?.CustomerId
-            });
-        }
-
-        [HttpPost("verify-account")]
-        public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(dto.UserName) || string.IsNullOrWhiteSpace(dto.Email))
-            {
-                return BadRequest(new { message = "Vui lòng nhập đầy đủ Tên đăng nhập và Email đã đăng ký!" });
-            }
-
-            var user = await _userRepository.GetByUsernameAsync(dto.UserName.Trim());
-            if (user == null)
-            {
-                return NotFound(new { message = "Tên đăng nhập không tồn tại trong hệ thống!" });
-            }
-
-            if (string.IsNullOrWhiteSpace(user.Email) ||
-                !string.Equals(user.Email.Trim(), dto.Email.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest(new { message = "Email không trùng khớp với thông tin đã đăng ký của tài khoản này!" });
-            }
-
-            // Sinh mã OTP 6 số ngẫu nhiên để xác thực
-            var randomOtp = new Random().Next(100000, 999999).ToString();
-
-            return Ok(new
-            {
-                success = true,
-                message = "Xác thực tài khoản thành công!",
-                userName = user.UserName,
-                fullName = user.FullName,
-                email = user.Email,
-                otpCode = randomOtp
-            });
-        }
-
-        [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(dto.UserName) || string.IsNullOrWhiteSpace(dto.Email))
-            {
-                return BadRequest(new { message = "Vui lòng nhập đầy đủ Tên đăng nhập và Email xác nhận!" });
-            }
-
-            if (string.IsNullOrWhiteSpace(dto.NewPassword))
-            {
-                return BadRequest(new { message = "Vui lòng nhập mật khẩu mới!" });
-            }
-
-            if (dto.NewPassword.Length < 4)
-            {
-                return BadRequest(new { message = "Mật khẩu mới phải có ít nhất 4 ký tự!" });
-            }
-
-            var user = await _userRepository.GetByUsernameAsync(dto.UserName.Trim());
-            if (user == null)
-            {
-                return NotFound(new { message = "Tên đăng nhập không tồn tại trong hệ thống!" });
-            }
-
-            if (string.IsNullOrWhiteSpace(user.Email) ||
-                !string.Equals(user.Email.Trim(), dto.Email.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest(new { message = "Email xác nhận không khớp với thông tin tài khoản!" });
-            }
-
-            user.PassWord = dto.NewPassword.Trim();
-            await _userRepository.UpdateAsync(user);
-
-            return Ok(new
-            {
-                success = true,
-                message = "Đặt lại mật khẩu thành công! Bạn có thể sử dụng mật khẩu mới để đăng nhập ngay bây giờ.",
-                userName = user.UserName
             });
         }
 

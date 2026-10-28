@@ -58,8 +58,8 @@ namespace TravelTour.API.Repositories
         public async Task<int> CreateAsync(Tour tour)
         {
             const string sql = @"
-                INSERT INTO Tours (TourName, Destination, Description, Price, Duration, Latitude, Longitude)
-                VALUES (@TourName, @Destination, @Description, @Price, @Duration, @Latitude, @Longitude);
+                INSERT INTO Tours (TourName, Destination, Description, Price, Duration, Latitude, Longitude, ImageUrl)
+                VALUES (@TourName, @Destination, @Description, @Price, @Duration, @Latitude, @Longitude, @ImageUrl);
                 SELECT CAST(SCOPE_IDENTITY() as int);";
 
             using var connection = _context.CreateConnection();
@@ -76,7 +76,8 @@ namespace TravelTour.API.Repositories
                     Price = @Price,
                     Duration = @Duration,
                     Latitude = @Latitude,
-                    Longitude = @Longitude
+                    Longitude = @Longitude,
+                    ImageUrl = @ImageUrl
                 WHERE TourId = @TourId";
 
             using var connection = _context.CreateConnection();

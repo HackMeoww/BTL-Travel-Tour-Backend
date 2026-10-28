@@ -158,6 +158,7 @@ namespace TravelTour.API.Controllers
 
         // DELETE: api/Review/1
         [HttpDelete("{id}")]
+ 
         [Authorize(Roles = "Customer,Admin")]
         public async Task<IActionResult> DeleteReview(int id)
         {

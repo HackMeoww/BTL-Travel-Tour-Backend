@@ -1,4 +1,4 @@
-﻿namespace TravelTour.API.Models
+namespace TravelTour.API.Models
 {
     public class Tour
     {
@@ -10,5 +10,6 @@
         public int Duration { get; set; }
         public decimal Latitude { get; set; }
         public decimal Longitude { get; set; }
+        public string? ImageUrl { get; set; }
     }
 }
