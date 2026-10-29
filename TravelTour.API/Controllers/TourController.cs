@@ -24,17 +24,6 @@ namespace TravelTour.API.Controllers
             return Ok(tours);
         }
 
-        // GET: api/Tour/search?destination=Quang Ninh&minPrice=1000000&maxPrice=5000000
-        [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<Tour>>> SearchTours(
-            string? destination,
-            decimal? minPrice,
-            decimal? maxPrice)
-        {
-            var tours = await _tourRepository.SearchAsync(destination, minPrice, maxPrice);
-            return Ok(tours);
-        }
-
         // GET: api/Tour/1
         [HttpGet("{id}")]
         public async Task<ActionResult<Tour>> GetTour(int id)

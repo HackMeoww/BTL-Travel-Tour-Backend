@@ -15,9 +15,34 @@ namespace TravelTour.API.Repositories
 
         public async Task<IEnumerable<Review>> GetAllAsync()
         {
-            const string sql = "SELECT * FROM Reviews";
+            const string sql = "SELECT * FROM Reviews ORDER BY CreatedAt DESC";
             using var connection = _context.CreateConnection();
             return await connection.QueryAsync<Review>(sql);
+        }
+
+        public async Task<IEnumerable<ReviewDetailDto>> GetAllDetailsAsync()
+        {
+            const string sql = @"
+                SELECT 
+                    r.ReviewId,
+                    r.TourId,
+                    ISNULL(t.TourName, N'Tour không xác định') AS TourName,
+                    ISNULL(t.Destination, N'Điểm đến') AS Destination,
+                    ISNULL(t.Price, 0) AS TourPrice,
+                    r.CustomerId,
+                    ISNULL(c.FullName, N'Khách vãng lai') AS CustomerName,
+                    ISNULL(c.Phone, N'') AS CustomerPhone,
+                    ISNULL(c.Email, N'') AS CustomerEmail,
+                    r.Rating,
+                    ISNULL(r.Comment, N'') AS Comment,
+                    r.CreatedAt
+                FROM Reviews r
+                LEFT JOIN Tours t ON r.TourId = t.TourId
+                LEFT JOIN Customers c ON r.CustomerId = c.CustomerId
+                ORDER BY r.CreatedAt DESC";
+
+            using var connection = _context.CreateConnection();
+            return await connection.QueryAsync<ReviewDetailDto>(sql);
         }
 
         public async Task<Review?> GetByIdAsync(int id)

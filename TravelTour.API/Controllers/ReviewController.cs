@@ -32,17 +32,24 @@ namespace TravelTour.API.Controllers
             return Ok(reviews);
         }
 
-        // GET: api/Review/1
+        // GET: api/Review/details (Dành cho Quản lý Đánh giá - Admin & Staff)
+        [HttpGet("details")]
+        [Authorize(Roles = "Admin,Staff")]
+        public async Task<ActionResult<IEnumerable<ReviewDetailDto>>> GetReviewDetails()
+        {
+            var details = await _reviewRepository.GetAllDetailsAsync();
+            return Ok(details);
+        }
+
+        // GET: api/Review/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Review>> GetReview(int id)
         {
             var review = await _reviewRepository.GetByIdAsync(id);
-
             if (review == null)
             {
                 return NotFound(new { message = "Không tìm thấy đánh giá" });
             }
-
             return Ok(review);
         }
 
@@ -67,6 +74,7 @@ namespace TravelTour.API.Controllers
             }
 
             var isAdmin = User.IsInRole("Admin");
+            var isStaff = User.IsInRole("Staff");
 
             var customer = await _customerRepository.GetByIdAsync(review.CustomerId);
 
@@ -75,7 +83,7 @@ namespace TravelTour.API.Controllers
                 return NotFound(new { message = "Không tìm thấy khách hàng" });
             }
 
-            if (!isAdmin && customer.UserId != userId)
+            if (!isAdmin && !isStaff && customer.UserId != userId)
             {
                 return Forbid();
             }
@@ -97,98 +105,47 @@ namespace TravelTour.API.Controllers
             var reviewId = await _reviewRepository.CreateAsync(review);
             review.ReviewId = reviewId;
 
-            return CreatedAtAction(
-                nameof(GetReview),
-                new { id = review.ReviewId },
-                review
-            );
+            return Ok(review);
         }
 
-        // PUT: api/Review/1
+        // PUT: api/Review/5 (Admin & Staff có thể sửa / cập nhật nội dung đánh giá)
         [HttpPut("{id}")]
-        [Authorize(Roles = "Customer,Admin")]
-        public async Task<IActionResult> UpdateReview(int id, Review input)
+        [Authorize(Roles = "Admin,Staff")]
+        public async Task<IActionResult> UpdateReview(int id, [FromBody] Review review)
         {
-            if (id != input.ReviewId)
+            if (id != review.ReviewId)
             {
-                return BadRequest(new { message = "ReviewId không khớp" });
+                return BadRequest(new { message = "Mã đánh giá không khớp" });
             }
 
-            var review = await _reviewRepository.GetByIdAsync(id);
-
-            if (review == null)
+            var exists = await _reviewRepository.ExistsAsync(id);
+            if (!exists)
             {
-                return NotFound(new { message = "Không tìm thấy đánh giá" });
+                return NotFound(new { message = "Không tìm thấy đánh giá cần cập nhật" });
             }
 
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(userIdValue, out int userId))
-            {
-                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
-            }
-
-            if (!User.IsInRole("Admin"))
-            {
-                var customer = await _customerRepository.GetByIdAsync(review.CustomerId);
-
-                if (customer == null || customer.UserId != userId)
-                {
-                    return Forbid();
-                }
-
-                if (input.CustomerId != review.CustomerId)
-                {
-                    return BadRequest(new { message = "Không được thay đổi khách hàng của đánh giá." });
-                }
-            }
-
-            if (input.Rating < 1 || input.Rating > 5)
+            if (review.Rating < 1 || review.Rating > 5)
             {
                 return BadRequest(new { message = "Rating phải từ 1 đến 5" });
             }
 
-            review.Rating = input.Rating;
-            review.Comment = input.Comment ?? string.Empty;
-
             await _reviewRepository.UpdateAsync(review);
-
-            return NoContent();
+            return Ok(new { message = "Cập nhật đánh giá thành công", review });
         }
 
-        // DELETE: api/Review/1
+        // DELETE: api/Review/5 (Admin & Staff có quyền xóa đánh giá vi phạm / spam)
         [HttpDelete("{id}")]
- 
-        [Authorize(Roles = "Customer,Admin")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteReview(int id)
         {
-            var review = await _reviewRepository.GetByIdAsync(id);
-
-            if (review == null)
+            var exists = await _reviewRepository.ExistsAsync(id);
+            if (!exists)
             {
-                return NotFound(new { message = "Không tìm thấy đánh giá" });
-            }
-
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(userIdValue, out int userId))
-            {
-                return Unauthorized(new { message = "Không xác định được tài khoản đăng nhập." });
-            }
-
-            if (!User.IsInRole("Admin"))
-            {
-                var customer = await _customerRepository.GetByIdAsync(review.CustomerId);
-
-                if (customer == null || customer.UserId != userId)
-                {
-                    return Forbid();
-                }
+                return NotFound(new { message = "Không tìm thấy đánh giá cần xóa" });
             }
 
             await _reviewRepository.DeleteAsync(id);
-
-            return NoContent();
+            return Ok(new { message = "Xóa đánh giá thành công", reviewId = id });
         }
     }
 }

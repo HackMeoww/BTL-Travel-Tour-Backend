@@ -40,20 +40,6 @@ namespace TravelTour.API.Controllers
             return Ok(payment);
         }
 
-        // GET: api/Payment/booking/1
-        [HttpGet("booking/{bookingId}")]
-        public async Task<ActionResult<Payment>> GetPaymentByBooking(int bookingId)
-        {
-            var payment = await _paymentRepository.GetByBookingIdAsync(bookingId);
-
-            if (payment == null)
-            {
-                return NotFound(new { message = "Không tìm thấy thanh toán cho booking này" });
-            }
-
-            return Ok(payment);
-        }
-
         // POST: api/Payment
         [HttpPost]
         [Authorize(Roles = "Admin,Staff,Customer")]
@@ -99,57 +85,6 @@ namespace TravelTour.API.Controllers
                 new { id = payment.PaymentId },
                 payment
             );
-        }
-
-        // PUT: api/Payment/1
-        [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
-        public async Task<IActionResult> UpdatePayment(int id, Payment payment)
-        {
-            if (id != payment.PaymentId)
-            {
-                return BadRequest(new { message = "PaymentId không khớp" });
-            }
-
-            if (!await _paymentRepository.ExistsAsync(id))
-            {
-                return NotFound(new { message = "Không tìm thấy thanh toán" });
-            }
-
-            await _paymentRepository.UpdateAsync(payment);
-
-            return NoContent();
-        }
-
-        // DELETE: api/Payment/1
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
-        public async Task<IActionResult> DeletePayment(int id)
-        {
-            var payment = await _paymentRepository.GetByIdAsync(id);
-
-            if (payment == null)
-            {
-                return NotFound(new { message = "Không tìm thấy thanh toán" });
-            }
-
-            await _paymentRepository.DeleteAsync(id);
-
-            return NoContent();
-        }
-
-        // GET: api/Payment/revenue
-        [HttpGet("revenue")]
-        [Authorize(Roles = "Admin,Staff")]
-        public async Task<IActionResult> GetRevenue()
-        {
-            var totalRevenue = await _paymentRepository.GetTotalRevenueAsync();
-
-            return Ok(new
-            {
-                message = "Thống kê doanh thu thành công",
-                totalRevenue = totalRevenue
-            });
         }
     }
 }

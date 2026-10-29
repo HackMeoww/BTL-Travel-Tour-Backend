@@ -237,22 +237,5 @@ namespace TravelTour.API.Controllers
                 bookingStatus = booking.Status
             });
         }
-
-        // DELETE: api/Booking/1
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
-        public async Task<IActionResult> DeleteBooking(int id)
-        {
-            var booking = await _bookingRepository.GetByIdAsync(id);
-
-            if (booking == null)
-            {
-                return NotFound(new { message = "Không tìm thấy booking" });
-            }
-
-            await _bookingRepository.DeleteAsync(id);
-
-            return NoContent();
-        }
     }
 }
